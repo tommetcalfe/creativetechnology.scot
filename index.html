@@ -27,7 +27,7 @@
     top: 50%;
     left: 50%;
     transform: translate(-50%, -50%);
-    font-size: min(36px, 6vw);
+    font-size: min(36px, 5.4vw);
     white-space: nowrap;
   }
 
@@ -90,7 +90,7 @@
       context.font = `100px ${fontFamily}`;
       const ratio = context.measureText('M').width / 100;
 
-      const fontSize = Math.min(MAX_FONT_SIZE, Math.floor((width * 0.9) / (WORD.length * ratio)));
+      const fontSize = Math.min(MAX_FONT_SIZE, Math.floor((width * 0.75) / (WORD.length * ratio)));
       const cellWidth = fontSize * ratio;
       const cellHeight = Math.round(fontSize * 1.2);
 
