@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>creativetechnology.scot</title>
+<style>
+  html, body {
+    margin: 0;
+    height: 100%;
+    background: #fff;
+    color: #000;
+    overflow: hidden;
+  }
+
+  h1, pre {
+    margin: 0;
+    font-family: "Courier New", Courier, monospace;
+    font-weight: normal;
+    font-variant-ligatures: none;
+    font-kerning: none;
+  }
+
+  /* Without JS, or with reduced motion, the word simply sits in the centre. */
+  h1 {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: min(36px, 6vw);
+    white-space: nowrap;
+  }
+
+  pre {
+    position: fixed;
+    display: none;
+    white-space: pre;
+  }
+
+  .animate h1 {
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+  }
+
+  .animate pre {
+    display: block;
+  }
+</style>
+</head>
+<body>
+<h1>creativetechnology.scot</h1>
+<pre aria-hidden="true"></pre>
+
+<script>
+  const WORD = 'creativetechnology.scot';
+  const TRAIL = '#*+:.';          // densest next to the letter, fading away from it
+  const MAX_FONT_SIZE = 36;
+  const HOLD_START = 3.2;         // seconds: every letter has landed by now
+  const HOLD_END = 4.7;          // seconds: the word starts to leave
+  const EXIT_DURATION = 0.8;      // seconds for a letter to drop off the bottom
+
+  if (!matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    document.documentElement.classList.add('animate');
+    run();
+  }
+
+  function run() {
+    const pre = document.querySelector('pre');
+    const random = (min, max) => min + Math.random() * (max - min);
+
+    const letters = [...WORD].map((char, i) => ({
+      char,
+      fall: random(0.6, 1.1),
+      land: random(1.1, HOLD_START),
+      leave: HOLD_END + i * 0.05 + random(0, 0.3),
+    }));
+
+    let cols, rows, centreRow, firstCol;
+
+    // The page is one grid of text. Odd row and column counts give the word
+    // a true centre cell, whatever the size of the window.
+    function layout() {
+      const width = innerWidth;
+      const height = innerHeight;
+      const fontFamily = getComputedStyle(pre).fontFamily;
+
+      const context = document.createElement('canvas').getContext('2d');
+      context.font = `100px ${fontFamily}`;
+      const ratio = context.measureText('M').width / 100;
+
+      const fontSize = Math.min(MAX_FONT_SIZE, Math.floor((width * 0.9) / (WORD.length * ratio)));
+      const cellWidth = fontSize * ratio;
+      const cellHeight = Math.round(fontSize * 1.2);
+
+      cols = Math.max(Math.ceil(width / cellWidth), WORD.length) | 1;
+      rows = Math.ceil(height / cellHeight) | 1;
+      centreRow = (rows - 1) / 2;
+      firstCol = (cols - WORD.length) / 2;
+
+      pre.style.fontSize = `${fontSize}px`;
+      pre.style.lineHeight = `${cellHeight}px`;
+      pre.style.left = `${(width - cols * cellWidth) / 2}px`;
+      pre.style.top = `${(height - rows * cellHeight) / 2}px`;
+    }
+
+    // Where a letter's head is at time t, in rows. Unclamped while falling, so
+    // that its trail keeps draining into the word after the letter has landed.
+    function headRow(letter, t) {
+      if (t < letter.leave) {
+        return centreRow - (letter.land - t) * (centreRow + 1) / letter.fall;
+      }
+      const elapsed = t - letter.leave;
+      const gravity = 2 * (rows - centreRow) / EXIT_DURATION ** 2;
+      return centreRow + 0.5 * gravity * elapsed ** 2;
+    }
+
+    function draw(t) {
+      const grid = Array.from({ length: rows }, () => Array(cols).fill(' '));
+      let finished = true;
+
+      letters.forEach((letter, i) => {
+        const col = firstCol + i;
+        const head = Math.floor(headRow(letter, t));
+        const leaving = t >= letter.leave;
+        const put = (row, char) => {
+          if (row >= 0 && row < rows) grid[row][col] = char;
+        };
+
+        for (let k = 0; k < TRAIL.length; k++) {
+          const row = head - 1 - k;
+          if (leaving ? row >= centreRow : row < centreRow) put(row, TRAIL[k]);
+        }
+        put(Math.min(head, leaving ? rows : centreRow), letter.char);
+
+        if (!leaving || head - TRAIL.length <= rows) finished = false;
+      });
+
+      pre.textContent = grid.map(row => row.join('')).join('\n');
+      return finished;
+    }
+
+    let previous;
+    let elapsed = 0;
+
+    function frame(now) {
+      // Capping the step holds the sequence while the tab is in the background.
+      elapsed += Math.min((now - (previous ?? now)) / 1000, 0.1);
+      previous = now;
+      if (!draw(elapsed)) requestAnimationFrame(frame);
+    }
+
+    layout();
+    addEventListener('resize', layout);
+    requestAnimationFrame(frame);
+  }
+</script>
+</body>
+</html>
